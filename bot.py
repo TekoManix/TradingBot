@@ -20,7 +20,7 @@ SMA_PERIOD = 50
 DCA_INTERVAL = 5
 
 print("Fetching market data...")
-market_data = api.get_barset(SYMBOL, 'minute', limit=100)
+market_data = api.get_bars(SYMBOL, 'minute', limit=100)
 close_list = np.array([bar.c for bar in market_data[SYMBOL]])
 
 buys, sells, pos_held = 0, 0, False
