@@ -24,12 +24,15 @@ SMA_PERIOD = 50
 print("Fetching market data...")
 market_data = api.get_bars(SYMBOL, TimeFrame.Minute, limit=100).df  # ✅ Corrected TimeFrame
 
-# Debugging step: print the first few rows and column names
-print(market_data.head())  # Display the first few rows of data
-print(market_data.columns)  # Display column names to verify
+# Print the first few rows of the data to understand its structure
+print(market_data.head())
 
-# Correctly access the 'close' column in the DataFrame
-close_list = market_data['close'].values
+# Check if the 'close' column exists before trying to access it
+if 'close' in market_data.columns:
+    close_list = market_data['close'].values
+else:
+    print("Error: 'close' column not found in market data.")
+
 
 buys, sells, pos_held = 0, 0, False
 
