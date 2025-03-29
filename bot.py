@@ -1,12 +1,13 @@
-
+import os
 import alpaca_trade_api as tradeapi
 import numpy as np
 import time
+from dotenv import load_dotenv
 
-SEC_KEY = ''
-PUB_KEY = ''
-BASE_URL = 'https://paper-api.alpaca.markets'
-api = tradeapi.REST(key_id= PUB_KEY, secret_key=SEC_KEY, base_url=BASE_URL)
+ALPACA_API_KEY = os.getenv('ALPACA_API_KEY')
+ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
+BASE_URL = os.getenv('BASE_URL')
+api = tradeapi.REST(key_id= ALPACA_API_KEY, secret_key=ALPACA_SECRET_KEY, base_url=BASE_URL)
 
 symb = "SPY"
 pos_held = False
@@ -19,8 +20,6 @@ close_list = []
 for bar in market_data[symb]:
     close_list.append(bar.c)
 
-
-
 print("Open: " + str(close_list[0]))
 print("Close: " + str(close_list[60 * hours_to_test - 1]))
 
@@ -30,7 +29,6 @@ startBal = 2000 # Start out with 2000 dollars
 balance = startBal
 buys = 0
 sells = 0
-
 
 
 for i in range(4, 60 * hours_to_test): # Start four minutes in, so that MA can be calculated
