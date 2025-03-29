@@ -23,7 +23,7 @@ print("Checking Price")
 
 try:
     # Use get_bars() to fetch historical market data
-    market_data = api.get_bars(symb, 'minute', limit=(60 * hours_to_test))  # Pull market data from the past 60x minutes
+    market_data = api.get_bars(symb, '1Min', limit=(60 * hours_to_test))  # Pull market data from the past 60x minutes
     
     close_list = []
     for bar in market_data:
