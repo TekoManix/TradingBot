@@ -1,64 +1,67 @@
-import os
-import numpy as np
-from dotenv import load_dotenv
+
 import alpaca_trade_api as tradeapi
-from alpaca_trade_api.rest import TimeFrame  # Correct TimeFrame Import
+import numpy as np
+import time
 
-# Load API keys from .env
-load_dotenv()
-ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
-ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
-BASE_URL = os.getenv("BASE_URL")
+SEC_KEY = ''
+PUB_KEY = ''
+BASE_URL = 'https://paper-api.alpaca.markets'
+api = tradeapi.REST(key_id= PUB_KEY, secret_key=SEC_KEY, base_url=BASE_URL)
 
-# Initialize API
-api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, BASE_URL)
+symb = "SPY"
+pos_held = False
+hours_to_test = 2
 
-# Define Parameters
-SYMBOL = "SPY"
-START_BALANCE = 2000
-BALANCE = START_BALANCE
-TRADE_SIZE = 50
-SMA_PERIOD = 50
+print("Checking Price")
+market_data = api.get_barset(symb, 'minute', limit=(60 * hours_to_test)) # Pull market data from the past 60x minutes
 
-# Fetch market data
-print("Fetching market data...")
-market_data = api.get_bars(SYMBOL, TimeFrame.Minute, limit=100).df  # ✅ Corrected TimeFrame
-
-# Print the first few rows of the data to understand its structure
-print(market_data.head())
-
-# Check if the 'close' column exists before trying to access it
-if 'close' in market_data.columns:
-    close_list = market_data['close'].values
-else:
-    print("Error: 'close' column not found in market data.")
+close_list = []
+for bar in market_data[symb]:
+    close_list.append(bar.c)
 
 
-buys, sells, pos_held = 0, 0, False
 
-for i in range(SMA_PERIOD, len(close_list)):
-    sma = np.mean(close_list[i - SMA_PERIOD:i])  # Calculate SMA
-    last_price = close_list[i]  # Current market price
+print("Open: " + str(close_list[0]))
+print("Close: " + str(close_list[60 * hours_to_test - 1]))
 
-    # Mean Reversion Buy Logic
-    if last_price < sma * 0.98 and BALANCE >= TRADE_SIZE:
-        print("Buying SPY (Mean Reversion Buy)")
-        BALANCE -= last_price
+
+close_list = np.array(close_list, dtype=np.float64)
+startBal = 2000 # Start out with 2000 dollars
+balance = startBal
+buys = 0
+sells = 0
+
+
+
+for i in range(4, 60 * hours_to_test): # Start four minutes in, so that MA can be calculated
+    ma = np.mean(close_list[i-4:i+1])
+    last_price = close_list[i]
+
+    print("Moving Average: " + str(ma))
+    print("Last Price: " + str(last_price))
+
+    if ma + 0.1 < last_price and not pos_held:
+        print("Buy")
+        balance -= last_price
         pos_held = True
         buys += 1
-
-    # Mean Reversion Sell Logic
-    elif last_price > sma * 1.02 and pos_held:
-        print("Selling SPY (Mean Reversion Sell)")
-        BALANCE += last_price
+    elif ma - 0.1 > last_price and pos_held:
+        print("Sell")
+        balance += last_price
         pos_held = False
         sells += 1
+    print(balance)
+    time.sleep(0.01)
 
-# If position is still held, sell at the last price
-if pos_held:
-    BALANCE += close_list[-1]
+print("")
+print("Buys: " + str(buys))
+print("Sells: " + str(sells))
 
-# Final Results
-print(f"Final Balance: {BALANCE}")
-print(f"Profit from bot: {BALANCE - START_BALANCE}")
-print(f"Total Buys: {buys}, Total Sells: {sells}")
+if buys > sells:
+    balance += close_list[60 * hours_to_test - 1] # Add back your equity to your balance
+    
+
+print("Final Balance: " + str(balance))
+
+print("Profit if held: " + str(close_list[60 * hours_to_test - 1] - close_list[0]))
+print("Profit from algorithm: " + str(balance - startBal))
