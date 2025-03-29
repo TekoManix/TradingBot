@@ -14,7 +14,7 @@ pos_held = False
 hours_to_test = 2
 
 print("Checking Price")
-market_data = api.get_asset(symb, 'minute', limit=(60 * hours_to_test)) # Pull market data from the past 60x minutes
+market_data = api.get_bars(symb, 'minute', limit=(60 * hours_to_test)) # Pull market data from the past 60x minutes
 
 close_list = []
 for bar in market_data[symb]:
