@@ -3,11 +3,12 @@ import alpaca_trade_api as tradeapi
 import numpy as np
 import time
 from dotenv import load_dotenv
+from alpaca_trade_api.rest import TimeFrame  # ✅ Correct TimeFrame import
 
-# Load environment variables from the .env file
+# Load environment variables
 load_dotenv()
 
-# Get the Alpaca API keys from the environment
+# Get API keys from the environment
 ALPACA_API_KEY = os.getenv('ALPACA_API_KEY')
 ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
 BASE_URL = os.getenv('BASE_URL')
@@ -19,62 +20,70 @@ symb = "SPY"
 pos_held = False
 hours_to_test = 2
 
-print("Checking Price")
+# ✅ Check if market is open
+clock = api.get_clock()
+if not clock.is_open:
+    print("⚠️ Market is currently closed. No data available.")
+    exit()
+
+print("✅ Checking Price...")
 
 try:
-    # Use get_bars() to fetch historical market data
-    market_data = api.get_bars(symb, '1Min', limit=(60 * hours_to_test))  # Use '1Min' for minute-level data
-    
-    close_list = []
-    for bar in market_data:
-        close_list.append(bar.c)  # Access 'c' for closing price from each bar
+    # ✅ Fetch market data using correct TimeFrame
+    market_data = api.get_bars(symb, TimeFrame.Minute, limit=(60 * hours_to_test)).df  # ✅ Convert to DataFrame
 
-    # Check if there's enough data
-    if len(close_list) < 60 * hours_to_test:
-        print(f"Warning: Not enough data retrieved. Only {len(close_list)} data points available.")
-    else:
-        print("Open: " + str(close_list[0]))
-        print("Close: " + str(close_list[60 * hours_to_test - 1]))
+    # ✅ Debug: Print received data
+    print("📊 Market Data Retrieved:\n", market_data.head())
 
-        close_list = np.array(close_list, dtype=np.float64)
-        startBal = 2000  # Start out with 2000 dollars
-        balance = startBal
-        buys = 0
-        sells = 0
+    # ✅ Ensure the data is not empty
+    if market_data.empty:
+        print("⚠️ Warning: No market data retrieved. Check symbol, market hours, or API keys.")
+        exit()
 
-        for i in range(4, 60 * hours_to_test):  # Start four minutes in, so that MA can be calculated
-            ma = np.mean(close_list[i-4:i+1])
-            last_price = close_list[i]
+    close_list = market_data['close'].values  # ✅ Correctly extract 'close' column
 
-            print("Moving Average: " + str(ma))
-            print("Last Price: " + str(last_price))
+    print(f"📈 Open Price: {close_list[0]}")
+    print(f"📉 Close Price: {close_list[-1]}")
 
-            if ma + 0.1 < last_price and not pos_held:
-                print("Buy")
-                balance -= last_price
-                pos_held = True
-                buys += 1
-            elif ma - 0.1 > last_price and pos_held:
-                print("Sell")
-                balance += last_price
-                pos_held = False
-                sells += 1
-            print(balance)
-            time.sleep(0.01)
+    close_list = np.array(close_list, dtype=np.float64)
+    startBal = 2000  # Start with $2000
+    balance = startBal
+    buys = 0
+    sells = 0
 
-        print("")
-        print("Buys: " + str(buys))
-        print("Sells: " + str(sells))
+    # ✅ Start at index 4 for moving average calculation
+    for i in range(4, len(close_list)):
+        ma = np.mean(close_list[i-4:i+1])
+        last_price = close_list[i]
 
-        if buys > sells:
-            balance += close_list[60 * hours_to_test - 1]  # Add back your equity to your balance
+        print(f"📊 Moving Average: {ma:.2f}, Last Price: {last_price:.2f}")
 
-        print("Final Balance: " + str(balance))
+        if ma + 0.1 < last_price and not pos_held:
+            print("✅ Buy Order Executed")
+            balance -= last_price
+            pos_held = True
+            buys += 1
+        elif ma - 0.1 > last_price and pos_held:
+            print("✅ Sell Order Executed")
+            balance += last_price
+            pos_held = False
+            sells += 1
 
-        print("Profit if held: " + str(close_list[60 * hours_to_test - 1] - close_list[0]))
-        print("Profit from algorithm: " + str(balance - startBal))
+        print(f"💰 Current Balance: {balance:.2f}")
+        time.sleep(0.01)
+
+    print("\n📊 Trade Summary")
+    print(f"💸 Total Buys: {buys}")
+    print(f"💰 Total Sells: {sells}")
+
+    if buys > sells:
+        balance += close_list[-1]  # Add equity value
+
+    print(f"🏁 Final Balance: {balance:.2f}")
+    print(f"📈 Profit if held: {close_list[-1] - close_list[0]:.2f}")
+    print(f"📊 Profit from algorithm: {balance - startBal:.2f}")
 
 except tradeapi.rest.APIError as e:
-    print("APIError: " + str(e))
+    print("❌ APIError:", str(e))
 except Exception as e:
-    print("An unexpected error occurred: " + str(e))
+    print("⚠️ Unexpected error:", str(e))
