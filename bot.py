@@ -3,6 +3,7 @@ import numpy as np
 import time
 import os
 from dotenv import load_dotenv
+from alpaca_trade_api.rest import TimeFrame  # Import TimeFrame
 
 # Load API keys from .env file
 load_dotenv()
@@ -20,7 +21,7 @@ SMA_PERIOD = 50
 DCA_INTERVAL = 5
 
 print("Fetching market data...")
-market_data = api.get_bars(SYMBOL, 'minute', limit=100)
+market_data = api.get_bars(SYMBOL, TimeFrame.Minute, limit=100)
 close_list = np.array([bar.c for bar in market_data[SYMBOL]])
 
 buys, sells, pos_held = 0, 0, False
