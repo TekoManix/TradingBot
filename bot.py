@@ -1,28 +1,30 @@
-import alpaca_trade_api as tradeapi
-import numpy as np
-import time
 import os
+import numpy as np
 from dotenv import load_dotenv
-from alpaca_trade_api.rest import TimeFrame  # Import TimeFrame
+import alpaca_trade_api as tradeapi
+from alpaca_trade_api.rest import TimeFrame  # Correct TimeFrame Import
 
-# Load API keys from .env file
+# Load API keys from .env
 load_dotenv()
 ALPACA_API_KEY = os.getenv("ALPACA_API_KEY")
 ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY")
 BASE_URL = os.getenv("BASE_URL")
 
+# Initialize API
 api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, BASE_URL)
 
+# Define Parameters
 SYMBOL = "SPY"
 START_BALANCE = 2000
 BALANCE = START_BALANCE
 TRADE_SIZE = 50
 SMA_PERIOD = 50
-DCA_INTERVAL = 5
 
 print("Fetching market data...")
-market_data = api.get_bars(SYMBOL, TimeFrame.Minute, limit=100)
-close_list = np.array([bar.c for bar in market_data[SYMBOL]])
+market_data = api.get_bars(SYMBOL, TimeFrame.Minute, limit=100).df  # ✅ Corrected TimeFrame
+
+# Correctly access the 'close' column in the DataFrame
+close_list = market_data['close'].values
 
 buys, sells, pos_held = 0, 0, False
 
