@@ -10,6 +10,7 @@ charset-normalizer==3.4.0
 deprecation==2.1.0
 frozenlist==1.5.0
 idna==3.10
+matplotlib==3.7.1
 msgpack==1.0.3
 multidict==6.1.0
 numpy==1.26.4
