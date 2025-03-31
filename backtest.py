@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 # Load environment variables
 load_dotenv()
 
-# Get API keys from the environment
-ALPACA_API_KEY = os.getenv('ALPACA_API_KEY')
-ALPACA_SECRET_KEY = os.getenv('ALPACA_SECRET_KEY')
-BASE_URL = os.getenv('BASE_URL')
+# Use the correct environment variables
+ALPACA_API_KEY = os.getenv("APCA_API_KEY_ID")
+ALPACA_SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
+BASE_URL = "https://paper-api.alpaca.markets/v2"  # or the live API URL if applicable
 
 # Initialize the Alpaca API
 api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, BASE_URL)
