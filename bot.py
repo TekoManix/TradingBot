@@ -9,12 +9,12 @@ from alpaca_trade_api.rest import TimeFrame  # ✅ Correct TimeFrame import
 load_dotenv()
 
 # Get API keys from the environment
-ALPACA_API_KEY = os.getenv('APCA_API_KEY_ID')
-ALPACA_SECRET_KEY = os.getenv('APCA_API_SECRET_KEY')
+APCA_API_KEY_ID = os.getenv('APCA_API_KEY_ID')
+APCA_API_SECRET_KEY = os.getenv('APCA_API_SECRET_KEY')
 BASE_URL = os.getenv('BASE_URL')
 
 # Initialize the Alpaca API
-api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, BASE_URL)
+api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, BASE_URL)
 
 symb = "SPY"
 pos_held = False
