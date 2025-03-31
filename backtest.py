@@ -12,7 +12,7 @@ load_dotenv()
 # Use the correct environment variables
 ALPACA_API_KEY = os.getenv("APCA_API_KEY_ID")
 ALPACA_SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
-BASE_URL = "https://paper-api.alpaca.markets/v2"  # or the live API URL if applicable
+BASE_URL = "https://paper-api.alpaca.markets/"  # or the live API URL if applicable
 
 # Initialize the Alpaca API
 api = tradeapi.REST(ALPACA_API_KEY, ALPACA_SECRET_KEY, BASE_URL)
