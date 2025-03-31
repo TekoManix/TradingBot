@@ -8,6 +8,7 @@ on:
 jobs:
   backtest:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -23,5 +24,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Backtest Script
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
         run: |
           python backtest.py
