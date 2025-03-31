@@ -3,7 +3,7 @@ import alpaca_trade_api as tradeapi
 import numpy as np
 import time
 from dotenv import load_dotenv
-from alpaca_trade_api.rest import TimeFrame  # ✅ Correct TimeFrame import
+from alpaca_trade_api.rest import TimeFrame  
 
 # Load environment variables
 load_dotenv()
@@ -14,7 +14,7 @@ APCA_API_SECRET_KEY = os.getenv('APCA_API_SECRET_KEY')
 APCA_BASE_URL = os.getenv('APCA_BASE_URL')
 
 # Initialize the Alpaca API
-api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, APCA_BASE_URL)
+api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, APCA_BASE_URL, api_version="v2")
 
 try:
     account = api.get_account()
@@ -23,9 +23,9 @@ try:
     print(f"Cash Balance: ${account.cash}")
 except Exception as e:
     print(f"❌ Connection error: {e}")
+    exit()
 
 symb = "SPY"
-pos_held = False
 hours_to_test = 2
 
 # ✅ Check if market is open
@@ -37,8 +37,8 @@ if not clock.is_open:
 print("✅ Checking Price...")
 
 try:
-    # ✅ Fetch market data using correct TimeFrame
-    market_data = api.get_bars(symb, TimeFrame.Minute, limit=(60 * hours_to_test)).df  # ✅ Convert to DataFrame
+    # ✅ Fetch market data
+    market_data = api.get_bars(symb, TimeFrame.Minute, limit=(60 * hours_to_test)).df  
 
     # ✅ Debug: Print received data
     print("📊 Market Data Retrieved:\n", market_data.head())
@@ -48,14 +48,13 @@ try:
         print("⚠️ Warning: No market data retrieved. Check symbol, market hours, or API keys.")
         exit()
 
-    close_list = market_data['close'].values  # ✅ Correctly extract 'close' column
+    close_list = market_data['close'].values  
 
     print(f"📈 Open Price: {close_list[0]}")
     print(f"📉 Close Price: {close_list[-1]}")
 
     close_list = np.array(close_list, dtype=np.float64)
-    startBal = 2000  # Start with $2000
-    balance = startBal
+
     buys = 0
     sells = 0
 
@@ -66,30 +65,51 @@ try:
 
         print(f"📊 Moving Average: {ma:.2f}, Last Price: {last_price:.2f}")
 
-        if ma + 0.1 < last_price and not pos_held:
-            print("✅ Buy Order Executed")
-            balance -= last_price
-            pos_held = True
+        # ✅ Check current position
+        position_qty = 0
+        try:
+            position = api.get_position(symb)
+            position_qty = int(position.qty)
+        except tradeapi.rest.APIError:
+            # No position currently held
+            pass
+
+        # ✅ Buy logic
+        if ma + 0.1 < last_price and position_qty == 0:
+            print("✅ Placing Buy Order")
+            order = api.submit_order(
+                symbol=symb,
+                qty=1,  # Buying 1 share
+                side="buy",
+                type="market",
+                time_in_force="gtc"
+            )
             buys += 1
-        elif ma - 0.1 > last_price and pos_held:
-            print("✅ Sell Order Executed")
-            balance += last_price
-            pos_held = False
+
+        # ✅ Sell logic
+        elif ma - 0.1 > last_price and position_qty > 0:
+            print("✅ Placing Sell Order")
+            order = api.submit_order(
+                symbol=symb,
+                qty=1,  # Selling 1 share
+                side="sell",
+                type="market",
+                time_in_force="gtc"
+            )
             sells += 1
 
-        print(f"💰 Current Balance: {balance:.2f}")
-        time.sleep(0.01)
+        # ✅ Print current position
+        try:
+            position = api.get_position(symb)
+            print(f"💰 Current Position: {position.qty} shares")
+        except tradeapi.rest.APIError:
+            print(f"💰 No open position in {symb}")
+
+        time.sleep(1)  # Small delay between trades
 
     print("\n📊 Trade Summary")
     print(f"💸 Total Buys: {buys}")
     print(f"💰 Total Sells: {sells}")
-
-    if buys > sells:
-        balance += close_list[-1]  # Add equity value
-
-    print(f"🏁 Final Balance: {balance:.2f}")
-    print(f"📈 Profit if held: {close_list[-1] - close_list[0]:.2f}")
-    print(f"📊 Profit from algorithm: {balance - startBal:.2f}")
 
 except tradeapi.rest.APIError as e:
     print("❌ APIError:", str(e))
