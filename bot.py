@@ -16,6 +16,14 @@ APCA_BASE_URL = os.getenv('APCA_BASE_URL')
 # Initialize the Alpaca API
 api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, APCA_BASE_URL)
 
+try:
+    account = api.get_account()
+    print("✅ Successfully connected to Alpaca!")
+    print(f"Account status: {account.status}")
+    print(f"Cash Balance: ${account.cash}")
+except Exception as e:
+    print(f"❌ Connection error: {e}")
+
 symb = "SPY"
 pos_held = False
 hours_to_test = 2
