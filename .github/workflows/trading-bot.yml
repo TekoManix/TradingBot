@@ -1,14 +1,11 @@
 name: Run Trading Bot
 
 on:
-  schedule:
-    - cron: '*/1 13-19 * * 1-5'  # Runs every 1 minute, Monday-Friday, 13:30 - 19:55 UTC (9:30 AM - 3:55 PM ET)
   workflow_dispatch:  # Allows manual runs
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -21,9 +18,19 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run trading bot
+      - name: Run trading bot continuously
         env:
           APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
           APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
           APCA_BASE_URL: ${{ secrets.APCA_BASE_URL }}
-        run: python bot.py
+        run: |
+          while true; do
+            current_time=$(date -u +"%H%M")
+            if [[ "$current_time" -ge 1330 && "$current_time" -lt 1955 ]]; then
+              python bot.py
+            else
+              echo "Market is closed. Exiting workflow."
+              exit 0
+            fi
+            sleep 30  # Wait 30 seconds before next execution to avoid hitting API limits
+          done
