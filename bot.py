@@ -8,8 +8,28 @@ from datetime import datetime
 from dotenv import load_dotenv
 from alpaca_trade_api.rest import TimeFrame  
 
-# Set up logging
-logging.basicConfig(filename="trading_bot.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+# Set up logging to both file and console
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Create a file handler and set level to INFO
+file_handler = logging.FileHandler("trading_bot.log")
+file_handler.setLevel(logging.INFO)
+
+# Create a stream handler to log to console
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+
+# Define log format
+formatter = logging.Formatter("%(asctime)s - %(message)s")
+file_handler.setFormatter(formatter)
+stream_handler.setFormatter(formatter)
+
+# Add both handlers to the logger
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+
+# Log initial message
 logging.info("Bot started.")
 
 # Load environment variables
@@ -136,4 +156,3 @@ except tradeapi.rest.APIError as e:
     logging.error(f"❌ APIError: {str(e)}")
 except Exception as e:
     logging.error(f"⚠️ Unexpected error: {str(e)}")
-
