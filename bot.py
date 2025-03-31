@@ -11,10 +11,10 @@ load_dotenv()
 # Get API keys from the environment
 APCA_API_KEY_ID = os.getenv('APCA_API_KEY_ID')
 APCA_API_SECRET_KEY = os.getenv('APCA_API_SECRET_KEY')
-BASE_URL = os.getenv('APCA_BASE_URL')
+APCA_BASE_URL = os.getenv('APCA_BASE_URL')
 
 # Initialize the Alpaca API
-api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, BASE_URL)
+api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, APCA_BASE_URL)
 
 symb = "SPY"
 pos_held = False
