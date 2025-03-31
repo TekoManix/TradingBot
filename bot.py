@@ -79,7 +79,7 @@ try:
             print("✅ Placing Buy Order")
             order = api.submit_order(
                 symbol=symb,
-                qty=1,  # Buying 1 share
+                qty=10,  # Buying 1 share
                 side="buy",
                 type="market",
                 time_in_force="gtc"
