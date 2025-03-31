@@ -3,9 +3,14 @@ import alpaca_trade_api as tradeapi
 import numpy as np
 import time
 import pytz
+import logging
 from datetime import datetime
 from dotenv import load_dotenv
 from alpaca_trade_api.rest import TimeFrame  
+
+# Set up logging
+logging.basicConfig(filename="trading_bot.log", level=logging.INFO, format="%(asctime)s - %(message)s")
+logging.info("Bot started.")
 
 # Load environment variables
 load_dotenv()
@@ -21,21 +26,23 @@ api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, APCA_BASE_URL, api_ver
 # Validate connection
 try:
     account = api.get_account()
-    print("✅ Successfully connected to Alpaca!")
-    print(f"Account status: {account.status}")
-    print(f"Cash Balance: ${account.cash}")
+    logging.info(f"✅ Successfully connected to Alpaca!")
+    logging.info(f"Account status: {account.status}")
+    logging.info(f"Cash Balance: ${account.cash}")
 except Exception as e:
-    print(f"❌ Connection error: {e}")
+    logging.error(f"❌ Connection error: {e}")
     exit()
 
 symb = "SPY"
+stop_loss_percent = 0.02  # 2% stop loss
+take_profit_percent = 0.03  # 3% take profit
 
 # ✅ Restrict trading to market hours (9:30 AM - 3:55 PM EST)
 nyc = pytz.timezone("America/New_York")
 now = datetime.now(nyc)
 
 if now.hour < 9 or (now.hour == 9 and now.minute < 30) or now.hour >= 16:
-    print("❌ Market is closed. Exiting.")
+    logging.warning("❌ Market is closed. Exiting.")
     exit()
 
 # ✅ Close all positions at 3:55 PM EST
@@ -44,10 +51,11 @@ if now.hour == 15 and now.minute >= 55:
         position = api.get_position(symb)
         qty = int(position.qty)
         if qty > 0:
-            print("📉 Closing all positions before market close...")
+            logging.info(f"📉 Closing all positions before market close...")
             api.submit_order(symbol=symb, qty=qty, side="sell", type="market", time_in_force="gtc")
+            logging.info("✅ All positions closed successfully.")
     except tradeapi.rest.APIError:
-        print("✅ No open position to close.")
+        logging.info("✅ No open position to close.")
     exit()
 
 # ✅ Fetch latest market data (1-minute timeframe)
@@ -55,7 +63,7 @@ try:
     market_data = api.get_bars(symb, TimeFrame.Minute, limit=50).df
 
     if market_data.empty:
-        print("⚠️ No market data retrieved. Exiting.")
+        logging.warning("⚠️ No market data retrieved. Exiting.")
         exit()
 
     # ✅ Compute VWAP
@@ -77,7 +85,7 @@ try:
     last_price = market_data['close'].iloc[-1]
     vwap = market_data['vwap'].iloc[-1]
 
-    print(f"📊 Last Price: {last_price:.2f}, VWAP: {vwap:.2f}, RSI: {rsi:.2f}")
+    logging.info(f"📊 Last Price: {last_price:.2f}, VWAP: {vwap:.2f}, RSI: {rsi:.2f}")
 
     # ✅ Get current position
     position_qty = 0
@@ -94,17 +102,38 @@ try:
 
     # ✅ Buy logic (VWAP & RSI strategy)
     if last_price < vwap and rsi < 30 and position_qty == 0:
-        print("✅ Placing Buy Order")
+        logging.info(f"✅ Placing Buy Order for {order_size} shares.")
         api.submit_order(symbol=symb, qty=order_size, side="buy", type="market", time_in_force="gtc")
+        logging.info(f"✅ Buy order placed at {last_price}.")
 
     # ✅ Sell logic (VWAP & RSI strategy)
     elif last_price > vwap and rsi > 70 and position_qty > 0:
-        print("✅ Placing Sell Order")
+        logging.info(f"✅ Placing Sell Order for {order_size} shares.")
         api.submit_order(symbol=symb, qty=order_size, side="sell", type="market", time_in_force="gtc")
+        logging.info(f"✅ Sell order placed at {last_price}.")
+
+    # ✅ Implement stop loss and take profit
+    if position_qty > 0:
+        avg_entry_price = float(position.avg_entry_price)
+
+        # Stop loss logic
+        stop_loss_price = avg_entry_price * (1 - stop_loss_percent)
+        if last_price <= stop_loss_price:
+            logging.info(f"❌ Stop loss triggered. Selling {position_qty} shares at {last_price}.")
+            api.submit_order(symbol=symb, qty=position_qty, side="sell", type="market", time_in_force="gtc")
+            logging.info("✅ Stop loss executed.")
+
+        # Take profit logic
+        take_profit_price = avg_entry_price * (1 + take_profit_percent)
+        if last_price >= take_profit_price:
+            logging.info(f"✅ Take profit triggered. Selling {position_qty} shares at {last_price}.")
+            api.submit_order(symbol=symb, qty=position_qty, side="sell", type="market", time_in_force="gtc")
+            logging.info("✅ Take profit executed.")
 
     time.sleep(1)  # Small delay between trades
 
 except tradeapi.rest.APIError as e:
-    print("❌ APIError:", str(e))
+    logging.error(f"❌ APIError: {str(e)}")
 except Exception as e:
-    print("⚠️ Unexpected error:", str(e))
+    logging.error(f"⚠️ Unexpected error: {str(e)}")
+
