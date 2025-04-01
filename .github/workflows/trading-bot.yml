@@ -21,20 +21,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run trading bot until 3:55 PM ET
+      - name: Run trading bot
         env:
           APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
           APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
           APCA_BASE_URL: ${{ secrets.APCA_BASE_URL }}
-        run: |
-          while true; do
-            current_time=$(date -u +"%H%M")
-            if [[ "$current_time" -ge 1330 && "$current_time" -lt 1955 ]]; then
-              echo "📈 Running trading bot at $(date -u)"
-              python bot.py || echo "⚠️ bot.py encountered an error!"
-              sleep 30  # Wait 30 seconds before the next execution
-            else
-              echo "🚪 Market is closed or time limit reached. Exiting at $(date -u)."
-              break  # Exit the loop properly instead of running forever
-            fi
-          done
+        run: python bot.py
