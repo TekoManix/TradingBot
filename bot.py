@@ -32,11 +32,12 @@ def is_market_open():
 # ✅ Main trading loop
 while is_market_open():
     try:
+        print("\n🔄 Fetching market data...")
         # ✅ Fetch market data (1-minute timeframe)
-        market_data = api.get_bars(SYMBOL, tradeapi.TimeFrame.Minute, limit=200).df  # More data for trend analysis
+        market_data = api.get_bars(SYMBOL, tradeapi.TimeFrame.Minute, limit=200).df  
 
         if market_data.empty:
-            print("⚠️ No market data retrieved. Retrying...")
+            print("⚠️ No market data retrieved. Retrying in 60s...")
             time.sleep(60)
             continue
 
@@ -69,36 +70,38 @@ while is_market_open():
         # ✅ Get account balance & position
         account = api.get_account()
         balance = float(account.cash)
+        print(f"💰 Available Cash: {balance:.2f}")
+
         position_qty = 0
         try:
             position = api.get_position(SYMBOL)
             position_qty = int(position.qty)
+            print(f"📊 Current Position: {position_qty} shares")
         except tradeapi.rest.APIError:
-            pass  # No open position
+            print("ℹ️ No open positions.")
 
         # ✅ Calculate order size (5% of cash balance)
         order_size = max(1, int(balance * ORDER_SIZE_PERCENT / last_price))
+        print(f"📌 Order Size: {order_size} shares")
 
         # ✅ Trend-Based Stop-Loss Adjustment
-        if sma_50 > sma_200:
-            trailing_stop = DYNAMIC_STOP_MAX  # Allow more room in uptrend
-        else:
-            trailing_stop = DYNAMIC_STOP_MIN  # Tighten stops in downtrend
+        trailing_stop = DYNAMIC_STOP_MAX if sma_50 > sma_200 else DYNAMIC_STOP_MIN
 
         # ✅ Buy Logic (Only Buy in Uptrend)
         if last_price < vwap and rsi < 30 and sma_50 > sma_200 and position_qty == 0:
-            print(f"✅ Placing Buy Order for {order_size} shares.")
-            api.submit_order(
+            print(f"✅ Placing Buy Order for {order_size} shares at {last_price:.2f}...")
+
+            order = api.submit_order(
                 symbol=SYMBOL,
                 qty=order_size,
                 side="buy",
                 type="market",
                 time_in_force="gtc"
             )
-            print(f"✅ Buy order placed at {last_price}.")
+            print(f"🟢 Buy order placed: {order}")
 
             # ✅ Apply Trailing Stop
-            api.submit_order(
+            trailing_stop_order = api.submit_order(
                 symbol=SYMBOL,
                 qty=order_size,
                 side="sell",
@@ -106,19 +109,27 @@ while is_market_open():
                 trail_percent=str(trailing_stop),
                 time_in_force="gtc"
             )
-            print(f"📉 Trailing stop set at {trailing_stop}% for {SYMBOL}")
+            print(f"📉 Trailing stop set at {trailing_stop}% for {SYMBOL}: {trailing_stop_order}")
 
         # ✅ Sell Logic (Only Sell in Downtrend)
         elif last_price > vwap and rsi > 70 and sma_50 < sma_200 and position_qty > 0:
-            print(f"✅ Placing Sell Order for {order_size} shares.")
-            api.submit_order(
+            print(f"✅ Placing Sell Order for {position_qty} shares at {last_price:.2f}...")
+
+            order = api.submit_order(
                 symbol=SYMBOL,
-                qty=order_size,
+                qty=position_qty,
                 side="sell",
                 type="market",
                 time_in_force="gtc"
             )
-            print(f"✅ Sell order placed at {last_price}.")
+            print(f"🔴 Sell order placed: {order}")
+
+        # ✅ Print Open Orders
+        open_orders = api.list_orders(status="open")
+        if open_orders:
+            print("📌 Open Orders:")
+            for o in open_orders:
+                print(f" - {o.side.upper()} {o.qty} {o.symbol} @ {o.limit_price or 'Market'} (Status: {o.status})")
 
         time.sleep(60)  # ✅ Run every minute
 
