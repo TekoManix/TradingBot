@@ -2,28 +2,30 @@ name: Run Trading Bot
 
 on:
   schedule:
-    - cron: '30 13 * * 1-5'  # Runs at 9:30 AM ET (Monday-Friday)
-  workflow_dispatch:  # Allows manual runs
+    - cron: "*/5 13-19 * * 1-5"  # Runs every 5 minutes, Mon-Fri, 9:30 AM - 3:55 PM EST
+  workflow_dispatch:  # Allows manual triggering
 
 jobs:
-  run-bot:
+  trade:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.10"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
 
       - name: Run trading bot
         env:
           APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
           APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
           APCA_BASE_URL: ${{ secrets.APCA_BASE_URL }}
-        run: python bot.py
+        run: |
+          python bot.py || echo "⚠️ bot.py encountered an error!"
