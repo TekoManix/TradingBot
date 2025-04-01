@@ -2,13 +2,12 @@ name: Run Trading Bot
 
 on:
   schedule:
-    - cron: '30 13 * * 1-5'  # Runs at 9:30 AM UTC (Market Open, Monday-Friday)
+    - cron: '30 13 * * 1-5'  # Runs at 9:30 AM ET (Monday-Friday)
   workflow_dispatch:  # Allows manual runs
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 385  # Stop the job automatically at 3:55 PM ET (385 min after 9:30 AM)
     
     steps:
       - name: Check out repository
@@ -22,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run trading bot continuously
+      - name: Run trading bot until 3:55 PM ET
         env:
           APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
           APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
@@ -31,11 +30,11 @@ jobs:
           while true; do
             current_time=$(date -u +"%H%M")
             if [[ "$current_time" -ge 1330 && "$current_time" -lt 1955 ]]; then
-              echo "Running trading bot..."
-              python bot.py
+              echo "📈 Running trading bot at $(date -u)"
+              python bot.py || echo "⚠️ bot.py encountered an error!"
+              sleep 30  # Wait 30 seconds before the next execution
             else
-              echo "Market is closed. Exiting workflow."
-              exit 0
+              echo "🚪 Market is closed or time limit reached. Exiting at $(date -u)."
+              break  # Exit the loop properly instead of running forever
             fi
-            sleep 30  # Wait 30 seconds before the next execution
           done
