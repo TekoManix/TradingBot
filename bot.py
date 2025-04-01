@@ -17,10 +17,10 @@ api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, APCA_BASE_URL, api_ver
 
 # ✅ Trading parameters
 SYMBOL = "SPY"
-ORDER_SIZE_PERCENT = 0.05  # Uses 5% of cash balance for each trade
-TRAILING_STOP_PERCENT = 2.0  # Default 2% trailing stop
-DYNAMIC_STOP_MIN = 1.0  # Minimum stop-loss percentage
-DYNAMIC_STOP_MAX = 3.0  # Maximum stop-loss percentage
+ORDER_SIZE_PERCENT = 0.05  # Uses 5% of cash balance per trade
+DYNAMIC_STOP_MIN = 1.0  # Min trailing stop
+DYNAMIC_STOP_MAX = 3.0  # Max trailing stop
+MARKET_CLOSE_TIME = 15 * 60 + 55  # 3:55 PM EST in minutes
 
 # ✅ Market hours check (9:30 AM - 3:55 PM EST)
 nyc = pytz.timezone("America/New_York")
@@ -29,11 +29,36 @@ def is_market_open():
     now = datetime.now(nyc)
     return 9 <= now.hour < 16 or (now.hour == 9 and now.minute >= 30)
 
+def get_market_time():
+    """ Returns the current market time in minutes past midnight (EST). """
+    now = datetime.now(nyc)
+    return now.hour * 60 + now.minute
+
+# ✅ Ensure positions are closed before market close
+def close_all_positions():
+    """ Closes all open positions before market close. """
+    positions = api.list_positions()
+    for position in positions:
+        symbol = position.symbol
+        qty = abs(int(position.qty))  # Ensure quantity is positive
+        print(f"⚠️ Closing {qty} shares of {symbol} before market close.")
+        api.submit_order(
+            symbol=symbol,
+            qty=qty,
+            side="sell",
+            type="market",
+            time_in_force="gtc"
+        )
+
 # ✅ Main trading loop
 while is_market_open():
     try:
+        if get_market_time() >= MARKET_CLOSE_TIME:
+            print("🚨 Market is closing soon. Closing all positions...")
+            close_all_positions()
+            break  # Stop trading loop
+
         print("\n🔄 Fetching market data...")
-        # ✅ Fetch market data (1-minute timeframe)
         market_data = api.get_bars(SYMBOL, tradeapi.TimeFrame.Minute, limit=200).df  
 
         if market_data.empty:
@@ -123,13 +148,6 @@ while is_market_open():
                 time_in_force="gtc"
             )
             print(f"🔴 Sell order placed: {order}")
-
-        # ✅ Print Open Orders
-        open_orders = api.list_orders(status="open")
-        if open_orders:
-            print("📌 Open Orders:")
-            for o in open_orders:
-                print(f" - {o.side.upper()} {o.qty} {o.symbol} @ {o.limit_price or 'Market'} (Status: {o.status})")
 
         time.sleep(60)  # ✅ Run every minute
 
