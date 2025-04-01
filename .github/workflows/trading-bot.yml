@@ -1,11 +1,15 @@
 name: Run Trading Bot
 
 on:
+  schedule:
+    - cron: '30 13 * * 1-5'  # Runs at 9:30 AM UTC (Market Open, Monday-Friday)
   workflow_dispatch:  # Allows manual runs
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
+    timeout-minutes: 385  # Stop the job automatically at 3:55 PM ET (385 min after 9:30 AM)
+    
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
@@ -27,10 +31,11 @@ jobs:
           while true; do
             current_time=$(date -u +"%H%M")
             if [[ "$current_time" -ge 1330 && "$current_time" -lt 1955 ]]; then
+              echo "Running trading bot..."
               python bot.py
             else
               echo "Market is closed. Exiting workflow."
               exit 0
             fi
-            sleep 30  # Wait 30 seconds before next execution to avoid hitting API limits
+            sleep 30  # Wait 30 seconds before the next execution
           done
