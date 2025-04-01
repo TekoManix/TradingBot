@@ -5,149 +5,138 @@ import time
 import pytz
 from datetime import datetime
 from dotenv import load_dotenv
+from alpaca_trade_api.rest import TimeFrame  
 
-# ✅ Load API keys
+# Load environment variables
 load_dotenv()
-APCA_API_KEY_ID = os.getenv("APCA_API_KEY_ID")
-APCA_API_SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
-APCA_BASE_URL = os.getenv("APCA_BASE_URL")
 
-# ✅ Validate API keys
-if not APCA_API_KEY_ID or not APCA_API_SECRET_KEY or not APCA_BASE_URL:
-    print("❌ Missing API keys! Ensure they are set in GitHub Secrets or .env file.")
-    exit(1)
+# Get API keys from environment
+APCA_API_KEY_ID = os.getenv('APCA_API_KEY_ID')
+APCA_API_SECRET_KEY = os.getenv('APCA_API_SECRET_KEY')
+APCA_BASE_URL = os.getenv('APCA_BASE_URL')
 
-# ✅ Initialize Alpaca API
+# Initialize the Alpaca API
 api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, APCA_BASE_URL, api_version="v2")
 
-# ✅ Trading parameters
-SYMBOL = "SPY"
-ORDER_SIZE_PERCENT = 0.05  # Uses 5% of cash balance per trade
-DYNAMIC_STOP_MIN = 1.0  # Min trailing stop
-DYNAMIC_STOP_MAX = 3.0  # Max trailing stop
-MARKET_CLOSE_TIME = 15 * 60 + 55  # 3:55 PM EST in minutes
-
-# ✅ Market hours check (9:30 AM - 3:55 PM EST)
-nyc = pytz.timezone("America/New_York")
+symb = "SPY"
+stop_loss_percent = 0.02  # 2% stop loss
+take_profit_percent = 0.03  # 3% take profit
 
 def is_market_open():
+    """Check if the market is open."""
+    nyc = pytz.timezone("America/New_York")
     now = datetime.now(nyc)
-    return 9 <= now.hour < 16 or (now.hour == 9 and now.minute >= 30)
+    return 9 <= now.hour < 16  # Market hours: 9:30 AM - 3:55 PM ET
 
-def get_market_time():
-    """ Returns the current market time in minutes past midnight (EST). """
-    now = datetime.now(nyc)
-    return now.hour * 60 + now.minute
-
-# ✅ Ensure positions are closed before market close
-def close_all_positions():
-    """ Closes all open positions before market close. """
-    positions = api.list_positions()
-    for position in positions:
-        symbol = position.symbol
-        qty = abs(int(position.qty))  # Ensure quantity is positive
-        print(f"⚠️ Closing {qty} shares of {symbol} before market close.")
-        api.submit_order(
-            symbol=symbol,
-            qty=qty,
-            side="sell",
-            type="market",
-            time_in_force="gtc"
-        )
-
-# ✅ Main trading loop
 while is_market_open():
     try:
-        if get_market_time() >= MARKET_CLOSE_TIME:
-            print("🚨 Market is closing soon. Closing all positions...")
-            close_all_positions()
-            break  # Stop trading loop
-
-        print("\n🔄 Fetching market data...")
-        market_data = api.get_bars(SYMBOL, tradeapi.TimeFrame.Minute, limit=200).df  
+        # ✅ Fetch market data
+        market_data = api.get_bars(symb, TimeFrame.Minute, limit=50).df
 
         if market_data.empty:
-            print("⚠️ No market data retrieved. Retrying in 60s...")
-            time.sleep(60)
+            print("⚠️ No market data retrieved. Retrying...")
+            time.sleep(30)
             continue
-
-        # ✅ Compute Moving Averages
-        market_data["SMA_50"] = market_data["close"].rolling(window=50).mean()
-        market_data["SMA_200"] = market_data["close"].rolling(window=200).mean()
 
         # ✅ Compute VWAP
-        market_data["vwap"] = (market_data["close"] * market_data["volume"]).cumsum() / market_data["volume"].cumsum()
+        market_data['vwap'] = (market_data['close'] * market_data['volume']).cumsum() / market_data['volume'].cumsum()
 
         # ✅ Compute RSI
-        close_prices = market_data["close"].values
-        if len(close_prices) < 15:
-            print("⚠️ Not enough price data for RSI calculation. Skipping...")
-            time.sleep(60)
-            continue
-
+        close_prices = market_data['close'].values
         delta = np.diff(close_prices)
         gain = np.maximum(delta, 0)
         loss = np.abs(np.minimum(delta, 0))
-        avg_gain = np.convolve(gain, np.ones(14) / 14, mode="valid")
-        avg_loss = np.convolve(loss, np.ones(14) / 14, mode="valid")
+
+        avg_gain = np.convolve(gain, np.ones(14) / 14, mode='valid')
+        avg_loss = np.convolve(loss, np.ones(14) / 14, mode='valid')
+
         rs = avg_gain[-1] / avg_loss[-1] if avg_loss[-1] != 0 else 100
         rsi = 100 - (100 / (1 + rs))
 
-        # ✅ Get latest price, VWAP, SMA values
-        last_price = market_data["close"].iloc[-1]
-        vwap = market_data["vwap"].iloc[-1]
-        sma_50 = market_data["SMA_50"].iloc[-1]
-        sma_200 = market_data["SMA_200"].iloc[-1]
+        # ✅ Get latest price, VWAP, and RSI
+        last_price = market_data['close'].iloc[-1]
+        vwap = market_data['vwap'].iloc[-1]
 
         print(f"📊 Last Price: {last_price:.2f}, VWAP: {vwap:.2f}, RSI: {rsi:.2f}")
-        print(f"📈 SMA 50: {sma_50:.2f}, SMA 200: {sma_200:.2f}")
 
-        # ✅ Get account balance & position
-        account = api.get_account()
-        balance = float(account.cash)
-        print(f"💰 Available Cash: {balance:.2f}")
-
+        # ✅ Get current position
         position_qty = 0
         try:
-            position = api.get_position(SYMBOL)
+            position = api.get_position(symb)
             position_qty = int(position.qty)
-            print(f"📊 Current Position: {position_qty} shares")
         except tradeapi.rest.APIError:
-            print("ℹ️ No open positions.")
+            pass  # No open position
 
         # ✅ Calculate order size (5% of cash balance)
-        order_size = max(1, int(balance * ORDER_SIZE_PERCENT / last_price))
-        print(f"📌 Order Size: {order_size} shares")
+        account = api.get_account()
+        balance = float(account.cash)
+        order_size = max(1, int(balance * 0.05 / last_price))
 
-        # ✅ Buy Logic
-        if last_price < vwap and rsi < 30 and sma_50 > sma_200 and position_qty == 0:
-            print(f"✅ Placing Buy Order for {order_size} shares at {last_price:.2f}...")
-
-            api.submit_order(
-                symbol=SYMBOL,
+        # ✅ Buy logic + Immediate Sell Order
+        if last_price < vwap and rsi < 30 and position_qty == 0:
+            print(f"✅ Placing Buy Order for {order_size} shares.")
+            buy_order = api.submit_order(
+                symbol=symb,
                 qty=order_size,
                 side="buy",
                 type="market",
                 time_in_force="gtc"
             )
+            print(f"✅ Buy order placed at {last_price}.")
 
-        # ✅ Sell Logic
-        elif last_price > vwap and rsi > 70 and sma_50 < sma_200 and position_qty > 0:
-            print(f"✅ Placing Sell Order for {position_qty} shares at {last_price:.2f}...")
+            # Wait for the order to fill before placing a sell order
+            time.sleep(2)
+            position = api.get_position(symb)
+            avg_entry_price = float(position.avg_entry_price)
 
+            # ✅ Set take profit & stop loss orders
+            take_profit_price = avg_entry_price * (1 + take_profit_percent)
+            stop_loss_price = avg_entry_price * (1 - stop_loss_percent)
+
+            print(f"📈 Setting take-profit at {take_profit_price:.2f} and stop-loss at {stop_loss_price:.2f}.")
+
+            # ✅ Place a limit sell order for take profit
             api.submit_order(
-                symbol=SYMBOL,
-                qty=position_qty,
+                symbol=symb,
+                qty=order_size,
                 side="sell",
-                type="market",
-                time_in_force="gtc"
+                type="limit",
+                time_in_force="gtc",
+                limit_price=take_profit_price
             )
 
-        time.sleep(60)  # ✅ Run every minute
+            # ✅ Place a stop loss order
+            api.submit_order(
+                symbol=symb,
+                qty=order_size,
+                side="sell",
+                type="stop",
+                time_in_force="gtc",
+                stop_price=stop_loss_price
+            )
+
+        # ✅ Monitor existing positions
+        if position_qty > 0:
+            position = api.get_position(symb)
+            avg_entry_price = float(position.avg_entry_price)
+
+            # Check if the order is still valid
+            take_profit_price = avg_entry_price * (1 + take_profit_percent)
+            stop_loss_price = avg_entry_price * (1 - stop_loss_percent)
+
+            if last_price >= take_profit_price:
+                print(f"✅ Take profit hit! Selling {position_qty} shares at {last_price}.")
+                api.submit_order(symbol=symb, qty=position_qty, side="sell", type="market", time_in_force="gtc")
+
+            elif last_price <= stop_loss_price:
+                print(f"❌ Stop loss hit! Selling {position_qty} shares at {last_price}.")
+                api.submit_order(symbol=symb, qty=position_qty, side="sell", type="market", time_in_force="gtc")
+
+        time.sleep(30)  # Small delay between trades
 
     except tradeapi.rest.APIError as e:
         print(f"❌ APIError: {str(e)}")
     except Exception as e:
         print(f"⚠️ Unexpected error: {str(e)}")
 
-print("❌ Market closed. Stopping bot.")
+print("✅ Market closed. Trading bot stopped.")
