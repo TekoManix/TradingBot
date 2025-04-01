@@ -12,6 +12,11 @@ APCA_API_KEY_ID = os.getenv("APCA_API_KEY_ID")
 APCA_API_SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
 APCA_BASE_URL = os.getenv("APCA_BASE_URL")
 
+# ✅ Validate API keys
+if not APCA_API_KEY_ID or not APCA_API_SECRET_KEY or not APCA_BASE_URL:
+    print("❌ Missing API keys! Ensure they are set in GitHub Secrets or .env file.")
+    exit(1)
+
 # ✅ Initialize Alpaca API
 api = tradeapi.REST(APCA_API_KEY_ID, APCA_API_SECRET_KEY, APCA_BASE_URL, api_version="v2")
 
@@ -75,6 +80,11 @@ while is_market_open():
 
         # ✅ Compute RSI
         close_prices = market_data["close"].values
+        if len(close_prices) < 15:
+            print("⚠️ Not enough price data for RSI calculation. Skipping...")
+            time.sleep(60)
+            continue
+
         delta = np.diff(close_prices)
         gain = np.maximum(delta, 0)
         loss = np.abs(np.minimum(delta, 0))
@@ -109,45 +119,29 @@ while is_market_open():
         order_size = max(1, int(balance * ORDER_SIZE_PERCENT / last_price))
         print(f"📌 Order Size: {order_size} shares")
 
-        # ✅ Trend-Based Stop-Loss Adjustment
-        trailing_stop = DYNAMIC_STOP_MAX if sma_50 > sma_200 else DYNAMIC_STOP_MIN
-
-        # ✅ Buy Logic (Only Buy in Uptrend)
+        # ✅ Buy Logic
         if last_price < vwap and rsi < 30 and sma_50 > sma_200 and position_qty == 0:
             print(f"✅ Placing Buy Order for {order_size} shares at {last_price:.2f}...")
 
-            order = api.submit_order(
+            api.submit_order(
                 symbol=SYMBOL,
                 qty=order_size,
                 side="buy",
                 type="market",
                 time_in_force="gtc"
             )
-            print(f"🟢 Buy order placed: {order}")
 
-            # ✅ Apply Trailing Stop
-            trailing_stop_order = api.submit_order(
-                symbol=SYMBOL,
-                qty=order_size,
-                side="sell",
-                type="trailing_stop",
-                trail_percent=str(trailing_stop),
-                time_in_force="gtc"
-            )
-            print(f"📉 Trailing stop set at {trailing_stop}% for {SYMBOL}: {trailing_stop_order}")
-
-        # ✅ Sell Logic (Only Sell in Downtrend)
+        # ✅ Sell Logic
         elif last_price > vwap and rsi > 70 and sma_50 < sma_200 and position_qty > 0:
             print(f"✅ Placing Sell Order for {position_qty} shares at {last_price:.2f}...")
 
-            order = api.submit_order(
+            api.submit_order(
                 symbol=SYMBOL,
                 qty=position_qty,
                 side="sell",
                 type="market",
                 time_in_force="gtc"
             )
-            print(f"🔴 Sell order placed: {order}")
 
         time.sleep(60)  # ✅ Run every minute
 
