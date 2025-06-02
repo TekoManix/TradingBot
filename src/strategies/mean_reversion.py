@@ -11,23 +11,23 @@ class MeanReversionStrategy(BaseStrategy):
     
     def generate_signals(self, data):
         """Generate trading signals based on mean reversion strategy"""
-        # Get latest data
-        hourly_data = data['1h']
+        # Get latest data from 15-minute timeframe instead of hourly
+        timeframe_data = data['15m']
         
         # Calculate mean reversion indicators
-        rsi = hourly_data['rsi'].iloc[-1]
-        bb_upper = hourly_data['bb_upper'].iloc[-1]
-        bb_lower = hourly_data['bb_lower'].iloc[-1]
-        bb_middle = hourly_data['bb_middle'].iloc[-1]
-        price = hourly_data['close'].iloc[-1]
-        vwap = hourly_data['vwap'].iloc[-1]
+        rsi = timeframe_data['rsi'].iloc[-1]
+        bb_upper = timeframe_data['bb_upper'].iloc[-1]
+        bb_lower = timeframe_data['bb_lower'].iloc[-1]
+        bb_middle = timeframe_data['bb_middle'].iloc[-1]
+        price = timeframe_data['close'].iloc[-1]
+        vwap = timeframe_data['vwap'].iloc[-1]
         
         # Calculate volatility
-        atr = hourly_data['atr'].iloc[-1]
-        avg_atr = hourly_data['atr'].rolling(20).mean().iloc[-1]
+        atr = timeframe_data['atr'].iloc[-1]
+        avg_atr = timeframe_data['atr'].rolling(20).mean().iloc[-1]
         
         # Log current market conditions
-        self.logger.info(f"\n=== Market Conditions ===")
+        self.logger.info(f"\n=== Market Conditions (15m) ===")
         self.logger.info(f"Price: ${price:.2f}")
         self.logger.info(f"VWAP: ${vwap:.2f}")
         self.logger.info(f"RSI: {rsi:.2f}")
