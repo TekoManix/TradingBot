@@ -42,7 +42,7 @@ def initialize_api():
     
     # Set default base URL if not provided
     if not base_url:
-        base_url = 'https://paper-api.alpaca.markets/v2'  # Default to paper trading
+        base_url = 'https://paper-api.alpaca.markets'  # Default to paper trading
         logging.info("Using default paper trading URL")
     
     # Initialize API
