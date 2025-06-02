@@ -36,4 +36,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: trading-bot-logs
-        path: trading_bot.log 
+        path: 
+          trading_bot.log
+          src/trading_bot.log
+        if-no-files-found: warn 
