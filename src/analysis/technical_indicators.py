@@ -1,21 +1,32 @@
 import numpy as np
 import pandas as pd
+import logging
 
 def calculate_atr(high, low, close, period=14):
-    """Calculate Average True Range"""
-    tr1 = high - low
-    tr2 = abs(high - close.shift(1))
-    tr3 = abs(low - close.shift(1))
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    return tr.rolling(period).mean()
+    """Calculate Average True Range with proper error handling"""
+    try:
+        tr1 = high - low
+        tr2 = abs(high - close.shift())
+        tr3 = abs(low - close.shift())
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        atr = tr.rolling(window=period).mean()
+        return atr
+    except Exception as e:
+        logging.error(f"Error calculating ATR: {str(e)}")
+        return pd.Series([np.nan] * len(close), index=close.index)
 
-def calculate_rsi(close, period=14):
-    """Calculate Relative Strength Index"""
-    delta = close.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
+def calculate_rsi(prices, period=14):
+    """Calculate Relative Strength Index with proper error handling"""
+    try:
+        delta = prices.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi
+    except Exception as e:
+        logging.error(f"Error calculating RSI: {str(e)}")
+        return pd.Series([np.nan] * len(prices), index=prices.index)
 
 def calculate_macd(close, fast=12, slow=26, signal=9):
     """Calculate MACD, Signal line, and Histogram"""
@@ -26,18 +37,29 @@ def calculate_macd(close, fast=12, slow=26, signal=9):
     histogram = macd - signal_line
     return macd, signal_line, histogram
 
-def calculate_bollinger_bands(close, period=20, std=2):
-    """Calculate Bollinger Bands"""
-    sma = close.rolling(window=period).mean()
-    std_dev = close.rolling(window=period).std()
-    upper_band = sma + (std_dev * std)
-    lower_band = sma - (std_dev * std)
-    return upper_band, sma, lower_band
+def calculate_bollinger_bands(prices, period=20, std_dev=2):
+    """Calculate Bollinger Bands with proper error handling"""
+    try:
+        middle_band = prices.rolling(window=period).mean()
+        std = prices.rolling(window=period).std()
+        upper_band = middle_band + (std * std_dev)
+        lower_band = middle_band - (std * std_dev)
+        return upper_band, middle_band, lower_band
+    except Exception as e:
+        logging.error(f"Error calculating Bollinger Bands: {str(e)}")
+        return pd.Series([np.nan] * len(prices), index=prices.index), \
+               pd.Series([np.nan] * len(prices), index=prices.index), \
+               pd.Series([np.nan] * len(prices), index=prices.index)
 
 def calculate_vwap(high, low, close, volume):
-    """Calculate Volume Weighted Average Price"""
-    typical_price = (high + low + close) / 3
-    return (typical_price * volume).cumsum() / volume.cumsum()
+    """Calculate Volume Weighted Average Price with proper error handling"""
+    try:
+        typical_price = (high + low + close) / 3
+        vwap = (typical_price * volume).cumsum() / volume.cumsum()
+        return vwap
+    except Exception as e:
+        logging.error(f"Error calculating VWAP: {str(e)}")
+        return pd.Series([np.nan] * len(close), index=close.index)
 
 def calculate_adx(high, low, close, period=14):
     """Calculate Average Directional Index"""

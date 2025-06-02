@@ -134,19 +134,21 @@ def get_market_data(api, symbol, timeframes):
         if tf in ['1m', '5m', '15m']:
             # Convert string timeframe to TimeFrame object with multiplier
             minutes = int(tf[:-1])
-            start_time = datetime.now() - timedelta(minutes=minutes * 100)
+            # Get more data for proper indicator calculation (at least 100 bars)
+            start_time = datetime.now() - timedelta(minutes=minutes * 200)  # Increased from 100 to 200
             # Format the date in RFC3339 format
             start_time_str = start_time.strftime('%Y-%m-%dT%H:%M:%SZ')
             data[tf] = api.get_bars(
                 symbol, 
                 TimeFrame.Minute,
-                limit=100,
+                limit=200,  # Increased from 100 to 200
                 adjustment='raw',
                 start=start_time_str
             ).df
         else:
+            # For hourly and daily data, get more bars
             data[tf] = api.get_bars(
-                symbol, timeframe, limit=100,
+                symbol, timeframe, limit=200,  # Increased from 100 to 200
                 adjustment='raw'
             ).df
         
@@ -156,5 +158,8 @@ def get_market_data(api, symbol, timeframes):
         data[tf]['bb_upper'], data[tf]['bb_middle'], data[tf]['bb_lower'] = calculate_bollinger_bands(data[tf]['close'])
         data[tf]['vwap'] = calculate_vwap(data[tf]['high'], data[tf]['low'], data[tf]['close'], data[tf]['volume'])
         data[tf]['atr'] = calculate_atr(data[tf]['high'], data[tf]['low'], data[tf]['close'])
+        
+        # Log the number of bars we have
+        logging.info(f"Got {len(data[tf])} bars for {tf} timeframe")
     
     return data 
