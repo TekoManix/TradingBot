@@ -1,11 +1,13 @@
 from .base_strategy import BaseStrategy
 import numpy as np
+import logging
 
 class MeanReversionStrategy(BaseStrategy):
     def __init__(self, api, symbol, account):
         super().__init__(api, symbol, account)
         self.max_position_size = 0.05  # Maximum 5% of portfolio
         self.risk_per_trade = 0.01     # 1% risk per trade
+        self.logger = logging.getLogger(self.__class__.__name__)
     
     def generate_signals(self, data):
         """Generate trading signals based on mean reversion strategy"""
@@ -24,31 +26,61 @@ class MeanReversionStrategy(BaseStrategy):
         atr = hourly_data['atr'].iloc[-1]
         avg_atr = hourly_data['atr'].rolling(20).mean().iloc[-1]
         
-        # Generate signals
-        long_signal = (
-            rsi < 30 and                    # Oversold
-            price < bb_lower and            # Price below lower BB
-            price < vwap and                # Price below VWAP
-            atr < avg_atr                   # Low volatility
-        )
+        # Log current market conditions
+        self.logger.info(f"\n=== Market Conditions ===")
+        self.logger.info(f"Price: ${price:.2f}")
+        self.logger.info(f"VWAP: ${vwap:.2f}")
+        self.logger.info(f"RSI: {rsi:.2f}")
+        self.logger.info(f"Bollinger Bands:")
+        self.logger.info(f"  Upper: ${bb_upper:.2f}")
+        self.logger.info(f"  Middle: ${bb_middle:.2f}")
+        self.logger.info(f"  Lower: ${bb_lower:.2f}")
+        self.logger.info(f"Volatility:")
+        self.logger.info(f"  Current ATR: ${atr:.2f}")
+        self.logger.info(f"  Average ATR: ${avg_atr:.2f}")
         
-        short_signal = (
-            rsi > 70 and                    # Overbought
-            price > bb_upper and            # Price above upper BB
-            price > vwap and                # Price above VWAP
-            atr < avg_atr                   # Low volatility
-        )
+        # Generate signals
+        long_conditions = {
+            'RSI < 30': rsi < 30,
+            'Price < BB Lower': price < bb_lower,
+            'Price < VWAP': price < vwap,
+            'ATR < Avg ATR': atr < avg_atr
+        }
+        
+        short_conditions = {
+            'RSI > 70': rsi > 70,
+            'Price > BB Upper': price > bb_upper,
+            'Price > VWAP': price > vwap,
+            'ATR < Avg ATR': atr < avg_atr
+        }
+        
+        # Log signal conditions
+        self.logger.info(f"\n=== Long Signal Conditions ===")
+        for condition, met in long_conditions.items():
+            self.logger.info(f"{condition}: {'✅' if met else '❌'}")
+        
+        self.logger.info(f"\n=== Short Signal Conditions ===")
+        for condition, met in short_conditions.items():
+            self.logger.info(f"{condition}: {'✅' if met else '❌'}")
+        
+        # Calculate final signals
+        long_signal = all(long_conditions.values())
+        short_signal = all(short_conditions.values())
         
         # Calculate signal strength
         signal_strength = 0
         if long_signal:
-            # Stronger signal when price is further from mean
             deviation = (bb_middle - price) / bb_middle
             signal_strength = min(1.0, deviation * 2)
+            self.logger.info(f"\n✅ Long signal generated!")
+            self.logger.info(f"Signal strength: {signal_strength:.2f}")
         elif short_signal:
-            # Stronger signal when price is further from mean
             deviation = (price - bb_middle) / bb_middle
             signal_strength = -min(1.0, deviation * 2)
+            self.logger.info(f"\n✅ Short signal generated!")
+            self.logger.info(f"Signal strength: {signal_strength:.2f}")
+        else:
+            self.logger.info(f"\n❌ No trading signals generated")
         
         return {
             'signal': 'long' if long_signal else 'short' if short_signal else None,
