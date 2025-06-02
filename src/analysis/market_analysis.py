@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import pytz
+from alpaca_trade_api.rest import TimeFrame
 from .technical_indicators import (
     calculate_atr, calculate_rsi, calculate_macd,
     calculate_bollinger_bands, calculate_vwap,
@@ -111,10 +112,14 @@ def get_market_data(api, symbol, timeframes):
     
     for tf, timeframe in timeframes.items():
         if tf in ['1m', '5m', '15m']:
-            multiplier = int(tf[:-1])
+            # Convert string timeframe to TimeFrame object with multiplier
+            minutes = int(tf[:-1])
             data[tf] = api.get_bars(
-                symbol, timeframe, limit=100,
-                adjustment='raw', multiplier=multiplier
+                symbol, 
+                TimeFrame.Minute,
+                limit=100,
+                adjustment='raw',
+                start=datetime.now() - timedelta(minutes=minutes * 100)
             ).df
         else:
             data[tf] = api.get_bars(
