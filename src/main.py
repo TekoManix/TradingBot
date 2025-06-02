@@ -36,9 +36,14 @@ def initialize_api():
     api_secret = os.getenv('APCA_API_SECRET_KEY')
     base_url = os.getenv('APCA_BASE_URL')
     
-    if not all([api_key, api_secret, base_url]):
+    if not all([api_key, api_secret]):
         logging.error("Missing API credentials")
         sys.exit(1)
+    
+    # Set default base URL if not provided
+    if not base_url:
+        base_url = 'https://paper-api.alpaca.markets/v2'  # Default to paper trading
+        logging.info("Using default paper trading URL")
     
     # Initialize API
     api = tradeapi.REST(api_key, api_secret, base_url, api_version='v2')
