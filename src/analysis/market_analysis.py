@@ -9,32 +9,52 @@ from .technical_indicators import (
     calculate_adx, calculate_volume_profile,
     calculate_support_resistance
 )
+import logging
 
 def detect_market_regime(data, lookback=20):
     """Detect current market regime (trending, ranging, volatile)"""
-    # Calculate volatility
-    returns = data['close'].pct_change()
-    volatility = returns.rolling(lookback).std()
-    
-    # Calculate ADX for trend strength
-    adx, plus_di, minus_di = calculate_adx(data['high'], data['low'], data['close'])
-    
-    # Calculate price range
-    price_range = (data['high'] - data['low']).rolling(lookback).mean()
-    
-    # Determine regime
-    is_trending = adx > 25
-    is_volatile = volatility > volatility.rolling(100).mean()
-    is_ranging = ~is_trending & ~is_volatile
-    
-    return {
-        'volatility': volatility,
-        'adx': adx,
-        'is_trending': is_trending,
-        'is_volatile': is_volatile,
-        'is_ranging': is_ranging,
-        'trend_direction': np.where(plus_di > minus_di, 1, -1)
-    }
+    try:
+        # Calculate volatility
+        returns = data['close'].pct_change()
+        volatility = returns.rolling(lookback).std()
+        
+        # Calculate ADX for trend strength
+        adx, plus_di, minus_di = calculate_adx(data['high'], data['low'], data['close'])
+        
+        # Calculate price range
+        price_range = (data['high'] - data['low']).rolling(lookback).mean()
+        
+        # Get the latest values
+        latest_adx = float(adx.iloc[-1])
+        latest_volatility = float(volatility.iloc[-1])
+        avg_volatility = float(volatility.rolling(100).mean().iloc[-1])
+        latest_plus_di = float(plus_di.iloc[-1])
+        latest_minus_di = float(minus_di.iloc[-1])
+        
+        # Determine regime using scalar values
+        is_trending = bool(latest_adx > 25)
+        is_volatile = bool(latest_volatility > avg_volatility)
+        is_ranging = bool(not is_trending and not is_volatile)
+        
+        return {
+            'volatility': latest_volatility,
+            'adx': latest_adx,
+            'is_trending': is_trending,
+            'is_volatile': is_volatile,
+            'is_ranging': is_ranging,
+            'trend_direction': 1 if latest_plus_di > latest_minus_di else -1
+        }
+    except Exception as e:
+        logging.error(f"Error in detect_market_regime: {str(e)}")
+        # Return default values in case of error
+        return {
+            'volatility': 0.0,
+            'adx': 0.0,
+            'is_trending': False,
+            'is_volatile': False,
+            'is_ranging': True,
+            'trend_direction': 0
+        }
 
 def analyze_order_flow(data):
     """Analyze order flow and market microstructure"""
