@@ -114,12 +114,15 @@ def get_market_data(api, symbol, timeframes):
         if tf in ['1m', '5m', '15m']:
             # Convert string timeframe to TimeFrame object with multiplier
             minutes = int(tf[:-1])
+            start_time = datetime.now() - timedelta(minutes=minutes * 100)
+            # Format the date in RFC3339 format
+            start_time_str = start_time.strftime('%Y-%m-%dT%H:%M:%SZ')
             data[tf] = api.get_bars(
                 symbol, 
                 TimeFrame.Minute,
                 limit=100,
                 adjustment='raw',
-                start=datetime.now() - timedelta(minutes=minutes * 100)
+                start=start_time_str
             ).df
         else:
             data[tf] = api.get_bars(
