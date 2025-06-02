@@ -2,13 +2,12 @@ name: Trading Bot
 
 on:
   schedule:
-    # Run at 9:30 AM and 3:55 PM EST on trading days
-    - cron: '30 13 * * 1-5'  # 9:30 AM EST
-    - cron: '55 19 * * 1-5'  # 3:55 PM EST
-  workflow_dispatch:  # Allow manual triggers
+    # Run every 5 minutes during market hours (9:30 AM - 4:00 PM EST, Monday-Friday)
+    - cron: '*/5 13-20 * * 1-5'  # UTC time (EST + 4 hours)
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  run-bot:
+  run-trading-bot:
     runs-on: ubuntu-latest
     
     steps:
@@ -17,16 +16,24 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
-        
+        python-version: '3.9'
+    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        
+    
     - name: Run trading bot
       env:
         APCA_API_KEY_ID: ${{ secrets.APCA_API_KEY_ID }}
         APCA_API_SECRET_KEY: ${{ secrets.APCA_API_SECRET_KEY }}
         APCA_BASE_URL: ${{ secrets.APCA_BASE_URL }}
-      run: python bot.py 
+      run: |
+        python src/main.py
+    
+    - name: Upload logs
+      if: always()  # Upload logs even if the bot fails
+      uses: actions/upload-artifact@v3
+      with:
+        name: trading-bot-logs
+        path: trading_bot.log 
